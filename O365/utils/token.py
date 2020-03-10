@@ -310,3 +310,62 @@ class FirestoreBackend(BaseTokenBackend):
                       .format(self.collection, self.doc_id, str(e)))
             doc = None
         return doc and doc.exists
+
+
+class RedisBackend(BaseTokenBackend):
+    """ A redis database backend to store tokens """
+
+    def __init__(self, client, token_key):
+        """
+        Init Backend
+        :param redis client: the redis client instance
+        :param str token_key: the name of the key that stores the token
+        """
+        super().__init__()
+        self.client = client
+        self.token_key = token_key
+
+    def __repr__(self):
+        return 'Token key: {}'.format(self.token_key)
+    
+    def load_token(self):
+        """
+        Retrieves the token from the store
+        :return dict or None: The token if exists, None otherwise
+        """
+        token = self.client.get(self.token_key)
+        if not token:
+            return None
+
+        return json.loads(token)
+
+    def save_token(self):
+        """
+        Saves the token dict in the store
+        :return bool: Success / Failure
+        """
+        if self.token is None:
+            raise ValueError('You have to set the "token" first.')
+
+        success = self.client.set(self.token_key, json.dumps(self.token))
+        if not success:
+            log.error('Token could not be saved')
+            return False
+
+        return True
+
+    def delete_token(self):
+        """
+        Deletes the token from the store
+        :return bool: Success / Failure
+        """
+        return self.client.delete(self.token_key)
+
+    def check_token(self):
+        """
+        Checks if the token exists
+        :return bool: True if it exists on the store
+        """
+        exists = self.client.get(self.token_key)
+
+        return bool(exists)
